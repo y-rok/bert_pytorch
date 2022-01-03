@@ -279,7 +279,8 @@ class PLMDataset(IterableDataset):
             if seq_len+len(new_sentence)>self.max_token_num:
                 # max_seq_len 보다 긴 첫번째 문장은 skip
                 if seq_len==0:
-                    logger.warning("skip sentence longer than max_seq_len-3")
+                    # logger.warning(new_sentence)
+                    logger.warning("skip sentence longer than max_seq_len-3 (sentence lenth = "+str(len(new_sentence))+")")
                 # 연속 두문장의 길이가 max_seq_len 보다 길 때 -> 
                 elif len(sequence)==1:
                     # 1번쨰 문장 버리고 2번째 문장 추가

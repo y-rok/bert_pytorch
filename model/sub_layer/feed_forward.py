@@ -16,7 +16,8 @@ class FeedForward(nn.Module):
         Args:
             x (Tensor): [batch_size, max_seq_len, d_model] 
         """
-        out = F.relu(self.fc1(x))
+        # out = F.relu(self.fc1(x))
+        out = F.gelu(self.fc1(x))
         out = self.fc2(out)
         
         return self.dropout(out)

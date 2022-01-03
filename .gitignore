@@ -6,3 +6,4 @@ bookcorpus.tar.bz2
 *.tf
 .vscode
 __pycache__
+output/*

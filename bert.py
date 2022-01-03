@@ -18,22 +18,30 @@ class Bert(nn.Module):
         self.with_cuda=with_cuda
         self.tokenizer = tokenizer
         self.vocab=self.tokenizer.get_vocab()
+        self.id_to_vocab={v:k for k,v in self.vocab.items()}
+
+
         self.encoder=Encoder(len(self.vocab),self.config["seg_num"],self.config["layer_num"],self.config["head_num"],self.config["max_seq_len"],self.config["d_model"],self.config["d_k"],self.config["d_ff"],self.config["dropout"])
 
         self.fc_sop=nn.Linear(self.config["d_model"],2)
         self.fc_mlm=nn.Linear(self.config["d_model"],len(self.vocab))
     
-    def forward(self,input_ids,seg_ids,att_masks,mlm_positions,mlm_masks):
+    def forward(self,data,return_sop=True,return_mlm=True):
 
-        out = self.encoder(input_ids, seg_ids, att_masks) # [batch_size, max_seq_len, d_model]
-
-        return self._predict_sentence_order(out), self._predict_mlm_tokens(out,mlm_positions,mlm_masks)
-
+        out = self.encoder(data["input_ids"], data["seg_ids"], data["att_masks"]) # [batch_size, max_seq_len, d_model]
+        
+        result={}
+        if return_sop:
+            result["so_pred"]=self._predict_sentence_order(out)
+        if return_mlm:
+            result["mask_pred"]=self._predict_mask_tokens(out,data["mlm_positions"],data["mlm_masks"])
+        return result
+    
     def _predict_sentence_order(self,x):
         out = self.fc_sop(x[:,0])
         return F.log_softmax(out,dim=1)
 
-    def _predict_mlm_tokens(self,x,mlm_positions,mlm_masks):
+    def _predict_mask_tokens(self,x,mlm_positions,mlm_masks):
 
         batch_size = mlm_positions.size()[0]
 
@@ -55,6 +63,25 @@ class Bert(nn.Module):
         
         return out # [batch_size, max_mask_tokenxs, vocan_num]
 
+    def convert_mask_pred_to_token(self,mask_pred,mlm_masks,top_k=3):
+        # a= mask_pred.topk(k=top_k, dim=2)
+        mask_pred_list = mask_pred.topk(k=top_k, dim=2).indices.tolist()
+        mlm_mask_list = mlm_masks.tolist()
+
+        result =[]
+        for i, seq in enumerate(mask_pred_list):
+            result_seq=[]
+            for j, pred_top_k in enumerate(seq):
+                if mlm_mask_list[i][j]==1:
+                    result_preds=[]
+                    for pred_id in pred_top_k:
+                        result_preds.append(self.id_to_vocab[pred_id])
+                    result_seq.append(result_preds)
+            if len(result_seq)!=0:
+                result.append(result_seq)
+        return result
+
+        
     # def __init__(self,config_path) -> None:
 
     #     with open(config_path,"r") as cfg_json:
