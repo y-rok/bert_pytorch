@@ -1,0 +1,11 @@
+{
+    "seg_num":2,
+    "layer_num":4,
+    "head_num":4,
+    "max_seq_len":128,
+    "d_model":64,
+    "d_k":16,
+    "d_ff":32,
+    "dropout":0.1,
+    "max_mask_tokens":10
+}

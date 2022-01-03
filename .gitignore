@@ -1,0 +1,8 @@
+datasets/*
+!datasets/book_corpus_debug.txt
+!datasets/vocab.txt
+reference/*
+bookcorpus.tar.bz2
+*.tf
+.vscode
+__pycache__
