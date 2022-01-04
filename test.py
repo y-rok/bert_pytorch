@@ -174,57 +174,62 @@ def google_prepare_data():
     """
         
 
-def predict_mask_token():
+def test_predict_mask_token():
     
-    with open("/root/data/ojt/config/model_debug.json","r") as cfg_json:
+    with open("/root/data/ojt/config/bert_small.json","r") as cfg_json:
         config = json.load(cfg_json)
 
     tokenizer=BertTokenizer.from_pretrained('bert-base-uncased')
     vocab=tokenizer.get_vocab()
 
     bert=Bert(config=config,tokenizer=tokenizer,with_cuda=False)
-    model_path = "/root/data/ojt/output/books_large_p1_25_model.pt"
+    model_path = "/root/data/ojt/output/books_large_p1_25.pt"
     print("Loading model %s"%model_path)
     bert.load_state_dict(torch.load(model_path))
     bert.eval()
     
     while True:
         text = sys.stdin.readline()
-        result = tokenizer(text, max_length=config["max_seq_len"],padding="max_length",return_token_type_ids=True)
-        
-        data ={}
+        predict_mask_token(bert,text)
 
-        data["input_ids"] = torch.tensor([result["input_ids"]],dtype=torch.int) 
-        data["seg_ids"]=torch.tensor([result["token_type_ids"]],dtype=torch.int)
-        data["att_masks"]=torch.tensor([result["attention_mask"]],dtype=torch.int)
+def predict_mask_token(bert,text,with_cuda=False):
+    result = bert.tokenizer(text, max_length=bert.config["max_seq_len"],padding="max_length",return_token_type_ids=True)
+    
+    data ={}
 
-        mlm_positions=[]
-        mlm_masks=[]
-        for index,id in enumerate(result["input_ids"]):
-            if id ==vocab[utils.MASK_TOKEN]:
-                mlm_positions.append(index)
-                mlm_masks.append(1)
+    data["input_ids"] = torch.tensor([result["input_ids"]],dtype=torch.int) 
+    data["seg_ids"]=torch.tensor([result["token_type_ids"]],dtype=torch.int)
+    data["att_masks"]=torch.tensor([result["attention_mask"]],dtype=torch.int)
 
-        if len(mlm_positions)<config["max_mask_tokens"]:
-            pad_num = config["max_mask_tokens"]-len(mlm_positions)
-            mlm_positions.extend([0]*pad_num)
-            mlm_masks.extend([0]*pad_num)
-        
-        # [max_token_num]
-        data["mlm_positions"]=torch.tensor([mlm_positions],dtype=torch.int)
-        data["mlm_masks"]=torch.tensor([mlm_masks],dtype=torch.int)
+    mlm_positions=[]
+    mlm_masks=[]
+    for index,id in enumerate(result["input_ids"]):
+        if id ==bert.vocab[utils.MASK_TOKEN]:
+            mlm_positions.append(index)
+            mlm_masks.append(1)
 
+    if len(mlm_positions)<bert.config["max_mask_tokens"]:
+        pad_num = bert.config["max_mask_tokens"]-len(mlm_positions)
+        mlm_positions.extend([0]*pad_num)
+        mlm_masks.extend([0]*pad_num)
+    
+    # [max_token_num]
+    data["mlm_positions"]=torch.tensor([mlm_positions],dtype=torch.int)
+    data["mlm_masks"]=torch.tensor([mlm_masks],dtype=torch.int)
 
-        result = bert(data,return_sop=False,return_mlm=True)
-        print(result)
-        print(bert.convert_mask_pred_to_token(result["mask_pred"],data["mlm_masks"]))
+    if with_cuda==True:
+        if with_cuda:
+                for key, item in data.items():
+                    data[key]=item.cuda()
 
-        
+    result = bert(data,return_sop=False,return_mlm=True)
+    # print(result)
+    print(bert.convert_mask_pred_to_token(result["mask_pred"],data["mlm_masks"]))
         
 
 
 if __name__=="__main__":
-    predict_mask_token()
+    test_predict_mask_token()
     # test_shape_encoder()
 
     # test_dataloader_old()

@@ -39,7 +39,7 @@ class Bert(nn.Module):
     
     def _predict_sentence_order(self,x):
         out = self.fc_sop(x[:,0])
-        return F.log_softmax(out,dim=1)
+        return F.log_softmax(out,dim=-1)
 
     def _predict_mask_tokens(self,x,mlm_positions,mlm_masks):
 
@@ -59,7 +59,7 @@ class Bert(nn.Module):
         " batch별로 예측한 position의 token output을 활용하여 Masked Token 예측 / Masking 적용"
         out = self.fc_mlm(x)
         out = out*mlm_masks.unsqueeze(2)
-        out =F.log_softmax(out,dim=2)
+        out =F.log_softmax(out,dim=-1)
         
         return out # [batch_size, max_mask_tokenxs, vocan_num]
 

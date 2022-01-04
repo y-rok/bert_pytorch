@@ -10,10 +10,45 @@ import torch.nn as nn
 from utils import get_logger
 import torch
 import logging
+from test import predict_mask_token
+import numpy as np
+import time
 
 logger=get_logger()
-logger.setLevel(logging.ERROR)
+# logger.setLevel(logging.ERROR)
 
+
+class ScheduledOptim():
+    '''A simple wrapper class for learning rate scheduling'''
+
+    def __init__(self, optimizer, d_model, n_warmup_steps):
+        self._optimizer = optimizer
+        self.n_warmup_steps = n_warmup_steps
+        self.n_current_steps = 0
+        self.init_lr = np.power(d_model, -0.5)
+
+    def step_and_update_lr(self):
+        "Step with the inner optimizer"
+        self._update_learning_rate()
+        self._optimizer.step()
+
+    def zero_grad(self):
+        "Zero out the gradients by the inner optimizer"
+        self._optimizer.zero_grad()
+
+    def _get_lr_scale(self):
+        return np.min([
+            np.power(self.n_current_steps, -0.5),
+            np.power(self.n_warmup_steps, -1.5) * self.n_current_steps])
+
+    def _update_learning_rate(self):
+        ''' Learning rate scheduling per step '''
+
+        self.n_current_steps += 1
+        lr = self.init_lr * self._get_lr_scale()
+
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
@@ -28,8 +63,13 @@ if __name__=="__main__":
     parser.add_argument("--warmup_steps",default=1000)
     parser.add_argument("--epochs",default=20)
     parser.add_argument("--gpu",default=True)
+    parser.add_argument("--debug",action="store_true")
+    parser.add_argument("-warmup_steps",default=10000)
 
     args=parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
 
     if args.gpu and torch.cuda.is_available:
         with_cuda = True
@@ -44,14 +84,17 @@ if __name__=="__main__":
     bert=Bert(config=config,tokenizer=tokenizer,with_cuda=with_cuda)
     if with_cuda: bert=bert.cuda()
 
-    # debugging code
-    # for param in bert.parameters():
-    #     print(param.size())
+
+    #debugging code
+    for name, param in bert.named_parameters():
+        if param.requires_grad:
+            logger.debug("%s, %s"%(name,str(param.size())))
 
     optim=Adam(bert.parameters(),lr=args.lr,betas=args.betas, weight_decay=args.weight_decay)
+    optim_schedule = ScheduledOptim(optim, config["d_model"], n_warmup_steps=args.warmup_steps)
 
     plm_dataset=PLMDataset(args.train_path,tokenizer,config["max_seq_len"],config["max_mask_tokens"])
-    train_data_loader = DataLoader(plm_dataset, batch_size=args.batch_size)
+    train_data_loader = DataLoader(plm_dataset, batch_size=args.batch_size,num_workers=1)
     
     step_num=0
     loss_val=0
@@ -60,6 +103,8 @@ if __name__=="__main__":
     mlm_criterion=nn.NLLLoss(ignore_index=0)
 
     min_loss =None
+
+    
     for epoch in range(args.epochs):
         
         loss_val = 0
@@ -86,12 +131,14 @@ if __name__=="__main__":
             masked_token_loss = mlm_criterion(masked_token_pred.transpose(1,2),data["mlm_labels"])
 
             loss = sent_order_loss + masked_token_loss
+
+            #debugging code
             loss = masked_token_loss
             # loss=sent_order_loss
 
-            optim.zero_grad()
+            optim_schedule.zero_grad()
             loss.backward()
-            optim.step()
+            optim_schedule.step_and_update_lr()
 
             loss_val+=loss.item()
             step_num+=1
@@ -113,12 +160,12 @@ if __name__=="__main__":
 
         print("epoch = %d, loss = %.2f, sop_acc %.2f"%(epoch,epoch_loss,sop_acc))
         
-        if min_loss==None:
-            min_loss=epoch_loss
-        elif min_loss>epoch_loss:
+        if min_loss==None or min_loss>epoch_loss:
             min_loss=epoch_loss
             print("saving model to %s"%args.output_path)
             torch.save(bert.state_dict(),args.output_path)
+            # debugging code
+            predict_mask_token(bert,"i [MASK] i had a [MASK] answer to that question .",with_cuda=True)
         
 
     

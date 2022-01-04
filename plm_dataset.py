@@ -47,19 +47,33 @@ class PLMDataset(IterableDataset):
             else:
                 print("Start Loading training data")
                 with open(data_path,"r") as f:
-                    while True:
-                        line=f.readline()
+                    # while True:
+                    #     line=f.readline()
+                    #     if line=="\n":
+                    #         self.documents.append([])
+                    #         print("doc added")
+                    #         continue
+                        
+                    #     if not line: break  
+                    #     self.documents[-1].append(tokenizer.tokenize(line))
+                    lines=f.readlines()
+
+                    for i,line in enumerate(lines):
                         if line=="\n":
                             self.documents.append([])
                             print("doc added")
-                            continue
-                        
-                        if not line: break  
                         self.documents[-1].append(tokenizer.tokenize(line))
+                        if i%100000==0:
+                            print("loading %d/%d"%(i,len(lines)))
+                        if i==10000000:
+                            break
+                    
+
                 print("Training data successfully loaded")
                 print("Writing pkl file = %s"%pkl_file_path)
                 with open(pkl_file_path,"wb") as f:
                     pickle.dump(self.documents,f)
+                print("Successfully written")
 
             sent_num = 0
             for doc in self.documents:
@@ -82,15 +96,21 @@ class PLMDataset(IterableDataset):
             # 임의로 Sentence order swapping
             is_end, sop_label, input_tokens, seg_a_token_num = self._get_sequence()
 
+            logger.debug(input_tokens)
+
+            
             if sop_label==None:
                 break
 
             # MLM 적용
             input_tokens, mlm_labels, mlm_positions, mlm_masks = self._get_mlm_sequence(input_tokens, seg_a_token_num)
 
+            # logger.debug("masked tokens = %s"%(str(input_tokens)))
+            
             # Tensor 생성
             result=self.tokenizer([input_tokens[:seg_a_token_num]],[input_tokens[seg_a_token_num:]],is_split_into_wrods=True,
             max_length=self.max_seq_len,padding="max_length",return_token_type_ids=True)
+            
 
             data={}
 
@@ -106,6 +126,8 @@ class PLMDataset(IterableDataset):
 
             # [1]
             data["sop_labels"]=torch.tensor(sop_label,dtype=torch.long)
+
+            logger.debug("data = %s"%(str(data)))
 
             yield data
 
@@ -318,6 +340,9 @@ class PLMDataset(IterableDataset):
 
         # 50% 확률로 Sentence 바꿀지 여부 결정
         correct_order = 1 if random.randint(0,1)==0 else 0
+        # debug code
+        correct_order=1
+    
 
         # 임의로 Segment A의 문장 수를 정함
         seg_a_num = random.randint(1,len(sequence)-1)
