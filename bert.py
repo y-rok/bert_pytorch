@@ -8,6 +8,9 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from utils import get_logger
+
+logger =get_logger()
 
 class Bert(nn.Module):
     def __init__(self, config,tokenizer,with_cuda) -> None:
@@ -34,7 +37,16 @@ class Bert(nn.Module):
         if return_sop:
             result["so_pred"]=self._predict_sentence_order(out)
         if return_mlm:
+            
+            
+
             result["mask_pred"]=self._predict_mask_tokens(out,data["mlm_positions"],data["mlm_masks"])
+            
+            # debug
+
+            # logger.debug("pred")
+            # logger.debug(self.convert_mask_pred_to_token(result["mask_pred"],data["mlm_masks"],top_k=1))
+
         return result
     
     def _predict_sentence_order(self,x):
@@ -60,12 +72,15 @@ class Bert(nn.Module):
         out = self.fc_mlm(x)
         out = out*mlm_masks.unsqueeze(2)
         out =F.log_softmax(out,dim=-1)
+
+
+        
         
         return out # [batch_size, max_mask_tokenxs, vocan_num]
 
     def convert_mask_pred_to_token(self,mask_pred,mlm_masks,top_k=3):
         # a= mask_pred.topk(k=top_k, dim=2)
-        mask_pred_list = mask_pred.topk(k=top_k, dim=2).indices.tolist()
+        mask_pred_list = mask_pred.topk(k=top_k, dim=-1).indices.tolist()
         mlm_mask_list = mlm_masks.tolist()
 
         result =[]

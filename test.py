@@ -20,6 +20,8 @@ from plm_dataset import PLMDataset
 from bert import Bert
 import sys
 import utils
+# from pre_train import train_tokenizer
+import os
 
 # def test_pos_emb_init():
 #     """
@@ -168,22 +170,20 @@ def test_dataloader_old():
 
     print(next(iter(train_data_loader)))
 
-def google_prepare_data():
-    """
-        google의 pre-training data 만드는 방식 확인
-    """
-        
+
 
 def test_predict_mask_token():
     
-    with open("/root/data/ojt/config/bert_small.json","r") as cfg_json:
+    with open("/root/data/ojt/config/bert_debug.json","r") as cfg_json:
         config = json.load(cfg_json)
 
     tokenizer=BertTokenizer.from_pretrained('bert-base-uncased')
     vocab=tokenizer.get_vocab()
 
     bert=Bert(config=config,tokenizer=tokenizer,with_cuda=False)
-    model_path = "/root/data/ojt/output/books_large_p1_25.pt"
+    # model_path = "/root/data/ojt/output/books_large_p1_25.pt"
+    model_path = "/root/data/ojt/output/debug_model.pt"
+
     print("Loading model %s"%model_path)
     bert.load_state_dict(torch.load(model_path))
     bert.eval()
@@ -227,11 +227,27 @@ def predict_mask_token(bert,text,with_cuda=False):
     print(bert.convert_mask_pred_to_token(result["mask_pred"],data["mlm_masks"]))
         
 
+# def create_train_data_for_bertpytorch():
+
+#     config_path = "/root/data/ojt/bert_debug.json"
+#     output_dir = "/root/data/ojt/reference/BERT-pytorch/dataset"
+#     train_path = "/root/data/ojt/datasets/book_corpus_debug.txt"
+
+#     with open(config_path,"r") as cfg_json:
+#         config = json.load(cfg_json)
+
+    
+#     if os.path.exists(output_dir):
+#         os.makedirs(output_dir)
+#     train_tokenizer(train_path,output_dir)
+
+#     vocab_file_path = os.path.join(output_dir,utils.VOCAB_TXT_FILE_NAME)
+#     tokenizer=BertTokenizer(vocab_file=vocab_file_path,do_lower_case=True)
+
+#     plm_dataset=PLMDataset(train_path,tokenizer,config["max_seq_len"],config["max_mask_tokens"],cached_dir=output_dir)
 
 if __name__=="__main__":
     test_predict_mask_token()
     # test_shape_encoder()
 
-    # test_dataloader_old()
-    # test_data_loader()
-    # test_pos_emb()
+    

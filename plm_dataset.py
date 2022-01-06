@@ -19,11 +19,12 @@ class PLMDataset(IterableDataset):
             - Masked Language Modeling
             - Next Sentence Classification
     """
-    def __init__(self,data_path,tokenizer,max_seq_len,max_mask_tokens=20,seed=10,in_memory=True) -> None:
+    def __init__(self,data_path,tokenizer,data_max_seq_len,model_max_seq_len,max_mask_tokens=20,cached_dir=None,use_cache=False,seed=10,in_memory=True) -> None:
         
         self.tokenizer=tokenizer
-        self.max_seq_len=max_seq_len
-        self.max_token_num = max_seq_len-3 # [CLS], (segment 사이의) [SEP], (문장 마지막) [SEP] 제외한 최대 Token 수
+        self.data_max_seq_len=data_max_seq_len
+        self.model_max_seq_len=model_max_seq_len
+        self.max_token_num = data_max_seq_len-3 # [CLS], (segment 사이의) [SEP], (문장 마지막) [SEP] 제외한 최대 Token 수
         self.max_mask_tokens=max_mask_tokens
         self.vocab=self.tokenizer.get_vocab()
 
@@ -38,9 +39,11 @@ class PLMDataset(IterableDataset):
 
             dir_path = os.path.dirname(data_path)
             file_name,extension = os.path.splitext(os.path.basename(data_path))
+            if cached_dir is None:
+                cached_dir=dir_path
 
-            pkl_file_path = os.path.join(dir_path,file_name+".pkl")
-            if os.path.exists(pkl_file_path):
+            pkl_file_path = os.path.join(cached_dir,file_name+".pkl")
+            if os.path.exists(pkl_file_path) and use_cache:
                 print("Reading pkl file = %s"%pkl_file_path)
                 with open(pkl_file_path,"rb") as f:
                     self.documents=pickle.load(f)
@@ -96,7 +99,7 @@ class PLMDataset(IterableDataset):
             # 임의로 Sentence order swapping
             is_end, sop_label, input_tokens, seg_a_token_num = self._get_sequence()
 
-            logger.debug(input_tokens)
+            # logger.debug(input_tokens)
 
             
             if sop_label==None:
@@ -109,7 +112,7 @@ class PLMDataset(IterableDataset):
             
             # Tensor 생성
             result=self.tokenizer([input_tokens[:seg_a_token_num]],[input_tokens[seg_a_token_num:]],is_split_into_wrods=True,
-            max_length=self.max_seq_len,padding="max_length",return_token_type_ids=True)
+            max_length=self.model_max_seq_len,padding="max_length",return_token_type_ids=True)
             
 
             data={}
@@ -127,7 +130,7 @@ class PLMDataset(IterableDataset):
             # [1]
             data["sop_labels"]=torch.tensor(sop_label,dtype=torch.long)
 
-            logger.debug("data = %s"%(str(data)))
+            # logger.debug("data = %s"%(str(input_tokens)))
 
             yield data
 
@@ -165,38 +168,39 @@ class PLMDataset(IterableDataset):
         mlm_positions=[]
         mlm_masks=[]
 
-        for i, token in enumerate(input_tokens):
-            if i in mask_index_list:
+        for i in mask_index_list:
+            token=input_tokens[i]
+            
+            mlm_labels.append(self.vocab[token])
+
+            if i<seg_a_token_num:
+                mlm_positions.append(i+1) # +1 / [CLS]
+            else:
+                mlm_positions.append(i+2) # +2 / [CLS], [SEP]
+
+            mlm_masks.append(1)
+
+            prob=random.randint(0,99)
+    
+
+            if prob<80:
+                # Masking
+                input_tokens[i]=utils.MASK_TOKEN
                 
-                mlm_labels.append(self.vocab[token])
+            elif prob<90:
+                # 다른 vocab으로 취환
+                while True:
+                    rand_vocab_index = random.randint(0,len(self.vocab)-1)
+                    rand_vocab=list(self.vocab.keys())[rand_vocab_index]
 
-                if i<seg_a_token_num:
-                    mlm_positions.append(i+1) # +1 / [CLS]
-                else:
-                    mlm_positions.append(i+2) # +2 / [CLS], [SEP]
-
-                mlm_masks.append(1)
-
-                prob=random.randint(0,99)
-
-                if prob<80:
-                    # Masking
-                    input_tokens[i]=utils.MASK_TOKEN
-                    
-                elif prob<90:
-                    # 다른 vocab으로 취환
-                    while True:
-                        rand_vocab_index = random.randint(0,len(self.vocab)-1)
-                        rand_vocab=list(self.vocab.keys())[rand_vocab_index]
-
-                        # [PAD], [MASK], [CLS], [SEP], [UNUSED] 등의 token을 뽑았을 경우 다시 뽑음
-                        if not(rand_vocab.startswith("[") and rand_vocab.endswith("]")):
-                            break
-                    
-                    input_tokens[i]=rand_vocab
-                else:
-                    # 유지
-                    continue
+                    # [PAD], [MASK], [CLS], [SEP], [UNUSED] 등의 token을 뽑았을 경우 다시 뽑음
+                    if not(rand_vocab.startswith("[") and rand_vocab.endswith("]")):
+                        break
+                
+                input_tokens[i]=rand_vocab
+            else:
+                # 유지
+                continue
             # else:
             #     labels.append(0)
 
@@ -266,12 +270,13 @@ class PLMDataset(IterableDataset):
         seq_len=0 
 
         is_end = False
+        next_is_new_doc=False
 
         while True:
 
 
             def __next_index():
-                next_is_new_doc = True
+                is_new_doc = True
 
 
                 # last sentence
@@ -282,27 +287,34 @@ class PLMDataset(IterableDataset):
                     self.sent_index=0
 
                     
-                    return next_is_new_doc
+                    return is_new_doc
                 else:
                     self.sent_index+=1
-                    next_is_new_doc = False
-                    return next_is_new_doc
+                    is_new_doc = False
+                    return is_new_doc
             
 
+            # Document의 마지막 Sentence인 경우
+            if next_is_new_doc:
+                is_end=True
+                if self.doc_index==len(self.documents) and len(sequence)<=1:
+                    # logger.warning("skip the last sentence")
+                    return True, None,None,None
+                else:
+                    self.doc_index=0
+                    break
             new_sentence = self.documents[self.doc_index][self.sent_index]
-            next_is_new_doc = __next_index()
+            
 
-            # 마지막 sequence
-            if next_is_new_doc and self.doc_index==len(self.documents):
-                is_end= True
-                self.doc_index=0
+            # 
 
 
+            # sentence 추가 시 max_seq_len 넘는 경우
             if seq_len+len(new_sentence)>self.max_token_num:
                 # max_seq_len 보다 긴 첫번째 문장은 skip
                 if seq_len==0:
                     # logger.warning(new_sentence)
-                    logger.warning("skip sentence longer than max_seq_len-3 (sentence lenth = "+str(len(new_sentence))+")")
+                    logger.debug("skip sentence longer than max_seq_len-3 (sentence lenth = "+str(len(new_sentence))+")")
                 # 연속 두문장의 길이가 max_seq_len 보다 길 때 -> 
                 elif len(sequence)==1:
                     # 1번쨰 문장 버리고 2번째 문장 추가
@@ -318,16 +330,12 @@ class PLMDataset(IterableDataset):
             else:
                 sequence.append(new_sentence)
                 seq_len+=len(new_sentence)
+            
+            next_is_new_doc = __next_index()
 
             
 
-            # 마지막 sequence
-            if is_end:
-                if len(sequence)==1:
-                    logger.warning("skip the last sentence")
-                    return is_end, None,None,None
-                else:
-                    break
+     
 
         
         # # 문장 2개만 연결해도 max_seq_len 초과하는 경우 skip
