@@ -19,42 +19,14 @@ import os
 import utils 
 from torch.utils.tensorboard import SummaryWriter
 import time
+from torch.optim.lr_scheduler import LambdaLR
 
 logger=get_logger()
 # logger.setLevel(logging.ERROR)
 
+# def lambda_lr()
 
-class ScheduledOptim():
-    '''A simple wrapper class for learning rate scheduling'''
 
-    def __init__(self, optimizer, d_model, n_warmup_steps):
-        self._optimizer = optimizer
-        self.n_warmup_steps = n_warmup_steps
-        self.n_current_steps = 0
-        self.init_lr = np.power(d_model, -0.5)
-
-    def step_and_update_lr(self):
-        "Step with the inner optimizer"
-        self._update_learning_rate()
-        self._optimizer.step()
-
-    def zero_grad(self):
-        "Zero out the gradients by the inner optimizer"
-        self._optimizer.zero_grad()
-
-    def _get_lr_scale(self):
-        return np.min([
-            np.power(self.n_current_steps, -0.5),
-            np.power(self.n_warmup_steps, -1.5) * self.n_current_steps])
-
-    def _update_learning_rate(self):
-        ''' Learning rate scheduling per step '''
-
-        self.n_current_steps += 1
-        lr = self.init_lr * self._get_lr_scale()
-
-        for param_group in self._optimizer.param_groups:
-            param_group['lr'] = lr
 
 def train_tokenizer(train_path,output_dir,vocab_size=32000, min_freq=3):
 
@@ -96,19 +68,24 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', required=True,type=str, help="model configuration file path")
     parser.add_argument('--train_path', required=True, type=str, help="training data file path")
-    parser.add_argument('--output_dir',required=True,type=str,help="model output path")
+    parser.add_argument('--output_dir',required=True,type=str,help="the output path where model, vocab file will be saved")
     parser.add_argument('--steps',default=100,type=int)
     parser.add_argument("--batch_size",default=16,type=int)
     parser.add_argument("--lr",default=1e-4,help="learning rate")
     parser.add_argument("--betas",default=(0.9,0.999))
     parser.add_argument("--weight_decay",default=0.01)
-    parser.add_argument("--warmup_steps",default=1000)
+    parser.add_argument("--warmup_steps",default=0,type=int)
     parser.add_argument("--ft_seq_len",default=128,type=int)
     parser.add_argument("--ft_ratio",default=0.9,type=float)
     parser.add_argument("--epochs",default=1000)
-    parser.add_argument("--gpu",default=True)
+    parser.add_argument("--cpu",action="store_true")
     parser.add_argument("--debug",action="store_true")
     parser.add_argument("-warmup_steps",default=10000)
+    parser.add_argument("--num_worklers",type=int,default=2)
+    parser.add_argument("--mlm",action="store_true")
+    parser.add_argument("--sop",action="store_true")
+    parser.add_argument("--log_steps",type=int,default=500)
+    parser.add_argument("--save_steps",type=int,default=1000)
 
     args=parser.parse_args()
 
@@ -123,7 +100,7 @@ if __name__=="__main__":
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    if args.gpu and torch.cuda.is_available:
+    if not args.cpu and torch.cuda.is_available:
         with_cuda = True
     else:
         with_cuda = False
@@ -139,6 +116,8 @@ if __name__=="__main__":
     tokenizer=BertTokenizer(vocab_file=vocab_file_path,do_lower_case=True)
 
     bert=Bert(config=config,tokenizer=tokenizer,with_cuda=with_cuda)
+    vocab=bert.vocab
+
     if with_cuda: 
         bert=bert.cuda()
         cuda_num = torch.cuda.device_count()
@@ -150,22 +129,44 @@ if __name__=="__main__":
         if param.requires_grad:
             logger.debug("%s, %s"%(name,str(param.size())))
 
-    optim=Adam(bert.parameters(),lr=args.lr,betas=args.betas, weight_decay=args.weight_decay)
-    optim_schedule = ScheduledOptim(optim, config["d_model"], n_warmup_steps=args.warmup_steps)
+    
 
+ 
+
+    
     pre_plm_dataset=PLMDataset(args.train_path,tokenizer,args.ft_seq_len,config["max_seq_len"],config["max_mask_tokens"],cached_dir=args.output_dir)
     pre_train_data_loader = DataLoader(pre_plm_dataset, batch_size=args.batch_size,num_workers=1)
     
+
+    step_num_in_epoch = 0
+    for i in pre_train_data_loader:
+        step_num_in_epoch +=1
+    total_step = step_num_in_epoch*args.epochs
+
+    # print(len(pre_train_data_loader))
     post_plm_dataset=PLMDataset(args.train_path,tokenizer,config["max_seq_len"],config["max_seq_len"],config["max_mask_tokens"],cached_dir=args.output_dir)
     post_train_data_loader = DataLoader(pre_plm_dataset, batch_size=args.batch_size,num_workers=1)
+
+
+    def lamda_lr(step):
+        if step<args.warmup_steps:
+            return float(step) / float(max(1, args.warmup_steps))
+        else:
+            return max(0.0, float(total_step - step) / float(max(1, total_step - args.warmup_steps))) 
+
+
+
+    optim=Adam(bert.parameters(),lr=args.lr,betas=args.betas, weight_decay=args.weight_decay)
+    scheduler = LambdaLR(optimizer=optim,lr_lambda=lamda_lr)
 
     sop_criterion=nn.NLLLoss()
     mlm_criterion=nn.NLLLoss(ignore_index=0)
 
 
-    step_num=0
+    
     seq_len_epoch =0
 
+    step_num=0
     start_time=time.time()
     
     for epoch in range(args.epochs):
@@ -196,7 +197,7 @@ if __name__=="__main__":
                     data[key]=item.cuda()
 
  
-            result, att_list = bert(data)
+            result, att_score_list = bert(data)
             
             sent_order_pred = result["so_pred"]
             masked_token_pred = result["mask_pred"]
@@ -204,18 +205,19 @@ if __name__=="__main__":
             
 
             sent_order_loss = sop_criterion(sent_order_pred,data["sop_labels"])
-            masked_token_loss = mlm_criterion(masked_token_pred.transpose(1,2),data["mlm_labels"])
+            masked_token_loss = mlm_criterion(masked_token_pred.view(-1,len(vocab)),data["mlm_labels"].view(-1))
 
-            loss = sent_order_loss + masked_token_loss
+            # loss = sent_order_loss + masked_token_loss
 
             #debugging code
             loss = masked_token_loss
             # loss=sent_order_loss
 
             
-            optim_schedule.zero_grad()
+            optim.zero_grad()
             loss.backward()
-            optim_schedule.step_and_update_lr()
+            optim.step()
+            scheduler.step()
 
             loss_val+=loss.item()
 
@@ -231,11 +233,9 @@ if __name__=="__main__":
             mlm_acc = mlm_correct/mlm_num
             sop_acc = sop_correct/data_num
 
-            
-            
 
-            if i%1000==0:
-                print("epoch = %d, loss = %.2f, sop_acc %.2f (iteration = %d)"%(epoch,mlm_loss,sop_acc,i))
+            if i%10==0:
+                print("epoch = %d, step=%d loss = %.4f, sop_acc %.2f learning_rate =%.8f "%(epoch+1,step_num,mlm_loss,sop_acc,scheduler.get_last_lr()[0]))
                 #debugging code
                 # logger.debug("label")
                 # label_list=[]
@@ -258,7 +258,7 @@ if __name__=="__main__":
         # writer.add_scalar("sop_acc/train",sop_acc,epoch)
 
   
-        print("epoch = %d, step=%d loss = %.2f, mlm_acc %.2f, %dsec(%.2fper iter) (trained max seq len = %d)"%(epoch+1,step_num,mlm_loss,mlm_acc,time.time()-start_time,(time.time()-epoch_start_time)/iter_in_epoch,seq_len_epoch))
+        print("epoch = %d, step=%d, loss = %.2f, mlm_acc %.2f, %dsec (%.2fper iter) (trained max seq len = %d)"%(epoch+1,step_num,mlm_loss,mlm_acc,time.time()-start_time,(time.time()-epoch_start_time)/iter_in_epoch,seq_len_epoch))
         
   
         if epoch%10==0:
@@ -267,3 +267,14 @@ if __name__=="__main__":
             torch.save(bert.state_dict(),output_model_path)
             # debugging code
             # predict_mask_token(bert,"i [MASK] i had a [MASK] answer to that question .",with_cuda=True)
+        
+
+    
+
+
+        
+
+
+
+
+        

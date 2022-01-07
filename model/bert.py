@@ -31,13 +31,12 @@ class Bert(nn.Module):
     
     def forward(self,data,return_sop=True,return_mlm=True):
 
-        out = self.encoder(data["input_ids"], data["seg_ids"], data["att_masks"]) # [batch_size, max_seq_len, d_model]
+        out, att_score_list = self.encoder(data["input_ids"], data["seg_ids"], data["att_masks"]) # [batch_size, max_seq_len, d_model]
         
         result={}
         if return_sop:
             result["so_pred"]=self._predict_sentence_order(out)
         if return_mlm:
-            
             
 
             result["mask_pred"]=self._predict_mask_tokens(out,data["mlm_positions"],data["mlm_masks"])
@@ -47,7 +46,7 @@ class Bert(nn.Module):
             # logger.debug("pred")
             # logger.debug(self.convert_mask_pred_to_token(result["mask_pred"],data["mlm_masks"],top_k=1))
 
-        return result
+        return result, att_score_list
     
     def _predict_sentence_order(self,x):
         out = self.fc_sop(x[:,0])

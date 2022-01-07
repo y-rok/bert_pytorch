@@ -20,14 +20,14 @@ class MultiHeadAttention(nn.Module):
         self.max_seq_len=max_seq_len
         
         # 모든 head의 attention을 계산하기 위한 weights
-        self.query_w=nn.Linear(d_model,d_k*head_num)
-        self.key_w=nn.Linear(d_model,d_k*head_num)
-        self.value_w=nn.Linear(d_model,self.d_v*head_num)
+        self.query_w=nn.Linear(d_model,d_k*head_num, bias=False)
+        self.key_w=nn.Linear(d_model,d_k*head_num, bias=False)
+        self.value_w=nn.Linear(d_model,self.d_v*head_num, bias=False)
         
         self.dropout=nn.Dropout(p=dropout)
         
         
-        self.linear=nn.Linear(head_num*self.d_v,d_model)
+        self.linear=nn.Linear(head_num*self.d_v,d_model, bias=False)
         
     def forward(self,x,masks):
         """
@@ -81,7 +81,7 @@ class MultiHeadAttention(nn.Module):
         out = out.permute(0,2,1,3).contiguous().view(batch_size,self.max_seq_len,self.head_num*self.d_v)  # [batch_size, max_seq_len, head_num*d_v]
         out=self.linear(out)
         
-        return self.dropout(out) # [batch_size, max_seq_len, d_model] 
+        return self.dropout(out), scores # [batch_size, max_seq_len, d_model] 
         
 
 

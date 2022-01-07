@@ -13,11 +13,11 @@ from model import encoder
 import json
 # import torch
 from transformers import BertTokenizer
-import bert_dataset
+# import bert_dataset
 from vocab import WordVocab
 from torch.utils.data import DataLoader
 from plm_dataset import PLMDataset
-from bert import Bert
+from model.bert import Bert
 import sys
 import utils
 # from pre_train import train_tokenizer
@@ -182,7 +182,7 @@ def test_predict_mask_token():
 
     bert=Bert(config=config,tokenizer=tokenizer,with_cuda=False)
     # model_path = "/root/data/ojt/output/books_large_p1_25.pt"
-    model_path = "/root/data/ojt/output/debug_model.pt"
+    model_path = "/root/data/ojt/output/debug_model/checkpo.pt"
 
     print("Loading model %s"%model_path)
     bert.load_state_dict(torch.load(model_path))

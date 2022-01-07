@@ -19,7 +19,7 @@ class PLMDataset(IterableDataset):
             - Masked Language Modeling
             - Next Sentence Classification
     """
-    def __init__(self,data_path,tokenizer,data_max_seq_len,model_max_seq_len,max_mask_tokens=20,cached_dir=None,use_cache=False,seed=10,in_memory=True) -> None:
+    def __init__(self,data_path,tokenizer,data_max_seq_len,model_max_seq_len,max_mask_tokens=20,cached_dir=None,use_cache=True,seed=10,in_memory=True) -> None:
         
         self.tokenizer=tokenizer
         self.data_max_seq_len=data_max_seq_len
@@ -87,7 +87,10 @@ class PLMDataset(IterableDataset):
             raise NotImplementedError("Reading dataset from the disk hasn't been implemented yet")
         
 
-
+        
+        # debugging
+        self.token_list =list(chain(*self.documents[0]))
+        self.token_index = 0
     
     
 
@@ -98,7 +101,7 @@ class PLMDataset(IterableDataset):
             # max_seq_len을 넘지 않는 sequence 생성 
             # 임의로 Sentence order swapping
             is_end, sop_label, input_tokens, seg_a_token_num = self._get_sequence()
-
+            # is_end, sop_label, input_tokens, seg_a_token_num = self._get_sequence_new()
             # logger.debug(input_tokens)
 
             
@@ -252,6 +255,25 @@ class PLMDataset(IterableDataset):
         
         return input_tokens, mlm_labels,mlm_positions, mlm_masks
 
+
+    def _get_sequence_new(self):
+        is_end=False
+        input_tokens=[]
+        is_first=True
+        
+        while True:
+            if self.token_index==len(self.token_list):
+                is_end=True
+                break
+            token = self.token_list[self.token_index]
+            input_tokens.append(token)
+            self.token_index+=1
+            
+            if len(input_tokens)==self.max_token_num:
+                break
+        
+        seg_a_token_num=len(input_tokens)
+        return is_end, True, input_tokens, seg_a_token_num
 
         
 

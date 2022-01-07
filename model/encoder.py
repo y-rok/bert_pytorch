@@ -14,6 +14,7 @@ class Encoder(nn.Module):
         self.input_emb=InputEmb(vocab_num,seg_num,max_seq_len,d_model,dropout)
         self.attention_layers=nn.ModuleList([MultiHeadAttention(head_num,max_seq_len,d_model,d_k,dropout) for _ in range(layer_num)])
         self.feedforward_layers=nn.ModuleList([FeedForward(d_model,d_ff,dropout) for _ in range(layer_num)])
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         
     def forward(self,input_ids,seg_ids, masks):
         """
@@ -29,16 +30,21 @@ class Encoder(nn.Module):
         """
         
         inputs=self.input_emb(input_ids,seg_ids,masks)
+        inputs=self.layer_norm(inputs)
+
+        att_score_list=[]
         
         for i in range(self.layer_num):
             
             # sub layer - Multi-Head Attention
-            temp=self.attention_layers[i](inputs,masks)
-            att_out=F.layer_norm(inputs+temp,[self.d_model]) # LayerNorm(x + Sublayer(x))
+            temp, att_scores=self.attention_layers[i](inputs,masks)
+            att_out=self.layer_norm(inputs+temp) # LayerNorm(x + Sublayer(x))
             
+            att_score_list.append(att_scores)
+
             # sub layer - Point-Wise Feed Forward
             temp=self.feedforward_layers[i](att_out)
-            ff_out=F.layer_norm(att_out+temp,[self.d_model]) # LayerNorm(x + Sublayer(x))
+            ff_out=self.layer_norm(att_out+temp) # LayerNorm(x + Sublayer(x))
             
             if i < self.layer_num-1:
                 inputs=ff_out 
@@ -49,7 +55,7 @@ class Encoder(nn.Module):
         masks=masks.unsqueeze(2)
         out=out.masked_fill(masks==0,0)
         
-        return out
+        return out, att_score_list
             
         
             
