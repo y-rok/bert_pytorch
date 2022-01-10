@@ -14,7 +14,7 @@ class Encoder(nn.Module):
         self.input_emb=InputEmb(vocab_num,seg_num,max_seq_len,d_model,dropout)
         self.attention_layers=nn.ModuleList([MultiHeadAttention(head_num,max_seq_len,d_model,d_k,dropout) for _ in range(layer_num)])
         self.feedforward_layers=nn.ModuleList([FeedForward(d_model,d_ff,dropout) for _ in range(layer_num)])
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(d_model,1e-12)
         
     def forward(self,input_ids,seg_ids, masks):
         """

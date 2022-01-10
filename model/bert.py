@@ -13,7 +13,7 @@ from utils import get_logger
 logger =get_logger()
 
 class Bert(nn.Module):
-    def __init__(self, config,tokenizer,with_cuda) -> None:
+    def __init__(self, config,tokenizer,return_sop,return_mlm,with_cuda) -> None:
         super(Bert,self).__init__()
 
         self.config=config
@@ -23,22 +23,28 @@ class Bert(nn.Module):
         self.vocab=self.tokenizer.get_vocab()
         self.id_to_vocab={v:k for k,v in self.vocab.items()}
 
-
         self.encoder=Encoder(len(self.vocab),self.config["seg_num"],self.config["layer_num"],self.config["head_num"],self.config["max_seq_len"],self.config["d_model"],self.config["d_k"],self.config["d_ff"],self.config["dropout"])
 
         self.fc_sop=nn.Linear(self.config["d_model"],2)
         self.fc_mlm=nn.Linear(self.config["d_model"],len(self.vocab))
+
+        self.return_sop=return_sop
+        self.return_mlm=return_mlm
+
+        if self.return_mlm:
+            logger.info("Enalbe Masked Laguage Modeling")
+        if self.return_sop:
+            logger.info("Enable Sentence Order Prediction")
+        
     
-    def forward(self,data,return_sop=True,return_mlm=True):
+    def forward(self,data):
 
         out, att_score_list = self.encoder(data["input_ids"], data["seg_ids"], data["att_masks"]) # [batch_size, max_seq_len, d_model]
         
         result={}
-        if return_sop:
+        if self.return_sop:
             result["so_pred"]=self._predict_sentence_order(out)
-        if return_mlm:
-            
-
+        if self.return_mlm:
             result["mask_pred"]=self._predict_mask_tokens(out,data["mlm_positions"],data["mlm_masks"])
             
             # debug
@@ -64,7 +70,7 @@ class Bert(nn.Module):
         
         mlm_positions+=batch_offset # [batch_size,max_mask_tokens]+[batch_size,1]
         mlm_positions=mlm_positions.view(batch_size*self.config["max_mask_tokens"])
-        x=x.index_select(0,mlm_positions)
+        x=x.index_select(dim=0,index=mlm_positions)
         x=x.view(batch_size,self.config["max_mask_tokens"],self.config["d_model"]) # [batch_size,max_mask_tokens,d_model]
          
         " batch별로 예측한 position의 token output을 활용하여 Masked Token 예측 / Masking 적용"
@@ -75,9 +81,9 @@ class Bert(nn.Module):
 
         
         
-        return out # [batch_size, max_mask_tokenxs, vocan_num]
+        return out # [batch_size, max_mask_tokens, vocan_num]
 
-    def convert_mask_pred_to_token(self,mask_pred,mlm_masks,top_k=3):
+    def convert_mask_pred_to_token(self,mask_pred,mlm_masks,top_k=10):
         # a= mask_pred.topk(k=top_k, dim=2)
         mask_pred_list = mask_pred.topk(k=top_k, dim=-1).indices.tolist()
         mlm_mask_list = mlm_masks.tolist()

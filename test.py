@@ -14,7 +14,7 @@ import json
 # import torch
 from transformers import BertTokenizer
 # import bert_dataset
-from vocab import WordVocab
+# from vocab import WordVocab
 from torch.utils.data import DataLoader
 from plm_dataset import PLMDataset
 from model.bert import Bert
