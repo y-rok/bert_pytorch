@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, head_num,max_seq_len, d_model,d_k,dropout=0.1) -> None:
+    def __init__(self, head_num,max_seq_len, d_model,d_k,dropout=0.1,layernorm_eps=1e-6) -> None:
         """
             d_model - input, output의 dimension
             d_k - Key와 Query의 Dimension
@@ -25,6 +25,7 @@ class MultiHeadAttention(nn.Module):
         self.value_w=nn.Linear(d_model,self.d_v*head_num, bias=False)
         
         self.dropout=nn.Dropout(p=dropout)
+        self.layer_norm = nn.LayerNorm(d_model,eps=layernorm_eps)
         
         
         self.linear=nn.Linear(head_num*self.d_v,d_model, bias=False)
@@ -66,8 +67,10 @@ class MultiHeadAttention(nn.Module):
         """
         out = out.permute(0,2,1,3).contiguous().view(batch_size,self.max_seq_len,self.head_num*self.d_v)  # [batch_size, max_seq_len, head_num*d_v]
         out=self.linear(out)
+        out = self.dropout(out)
+        out = out+x
         
-        return self.dropout(out), scores # [batch_size, max_seq_len, d_model] 
+        return self.layer_norm(out), scores # [batch_size, max_seq_len, d_model] 
         
 
 

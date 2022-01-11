@@ -50,6 +50,11 @@ class LMTrainer:
 
         if not os.path.exists(training_args.output_dir):
             os.makedirs(training_args.output_dir)
+
+        training_args_path = os.path.join(training_args.output_dir,utils.TRAINING_ARGS_NAME)
+        logger.info("Writing training args file to %s"%training_args_path)
+        with open(training_args_path,"w") as f:
+            json.dump(vars(training_args),f)
         
         log_file_path = os.path.join(training_args.output_dir,utils.TRAINING_LOG_NAME)
         logger.info("Writing Log file to %s"%log_file_path)

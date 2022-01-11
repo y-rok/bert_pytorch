@@ -25,7 +25,7 @@ TOKENIZERS_PARALLELISM=false
 #100개의 문장으로 학습
 # python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_100.txt --output_dir /root/data/ojt/output/book_100_bert_debug_mlm --ft_ratio 0 --mlm
 # python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_100.txt --output_dir /root/data/ojt/output/book_100_bert_debug_mlm_ft_7_3 --ft_ratio 0.7 --ft_seq_len 64 --mlm
-# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_100.txt --output_dir /root/data/ojt/output/book_100_bert_debug_mlm_sop --ft_ratio 0 --mlm --sop
+# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/dcata/ojt/datasets/book_corpus_100.txt --output_dir /root/data/ojt/output/book_100_bert_debug_mlm_sop --ft_ratio 0 --mlm --sop
 
 # 1000개 문장으로 학습
 # export CUDA_VISIBLE_DEVICES=0,1
@@ -33,7 +33,7 @@ TOKENIZERS_PARALLELISM=false
 
 
 # 10000개 문장으로 학습
-python plm_train.py --config_path /root/data/ojt/config/bert_small.json --train_path /root/data/ojt/datasets/books_corpus_p1_10.txt --output_dir /root/data/ojt/output/bert_small_book_10_mlm_ft --ft_seq_len 128 --ft_ratio 0.9 --mlm --epochs 1000 --batch_size 8 --warmup_steps 10000
+python plm_train.py --config_path /root/data/ojt/config/bert_small.json --train_path /root/data/ojt/datasets/books_corpus_p1_1.txt --output_dir /root/data/ojt/output/bert_small_book_1_mlm --ft_ratio 0 --mlm --epochs 2000 --batch_size 32 --warmup_steps 0
 
 # export CUDA_VISIBLE_DEVICES=0,1
 # python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/books_corpus_p1_10.txt --output_dir /root/data/ojt/output/bert_debug_book_10_mlm_ft --ft_seq_len 64 --ft_ratio 0.9 --mlm --epochs 10000 --batch_size 64 

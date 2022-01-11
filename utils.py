@@ -6,6 +6,7 @@ VOCAB_TXT_FILE_NAME="vocab.txt"
 MODEL_FILE_NAME="model.pt"
 TRAINING_LOG_NAME="train.log"
 MODEL_CONFIG_NAME="model_config.json"
+TRAINING_ARGS_NAME="training_args.json"
 
 def get_logger():
     logging.basicConfig()

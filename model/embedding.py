@@ -6,7 +6,7 @@ import torch
 
 class InputEmb(nn.Module):
 
-    def __init__(self,vocab_num, seg_num, max_seq_len, d_model, dropout=0.1):
+    def __init__(self,vocab_num, seg_num, max_seq_len, d_model, dropout=0.1,layernorm_eps=1e-6):
         super(InputEmb,self).__init__()
         
         self.max_seq_len = max_seq_len
@@ -15,8 +15,9 @@ class InputEmb(nn.Module):
         # self.position_enc = PositionEnc(max_seq_len=max_seq_len, d_model=d_model)
         self.position_emb = nn.Embedding(num_embeddings=max_seq_len, embedding_dim=d_model)
         self.dropout = nn.Dropout(p=dropout)
+        self.layer_norm = nn.LayerNorm(d_model,eps=layernorm_eps)
 
-    def forward(self,input_ids,seg_ids,masks):
+    def forward(self,input_ids,seg_ids):
         """
             token embedding + segment embedding + positional embedding
 
@@ -30,7 +31,7 @@ class InputEmb(nn.Module):
         s_emb = self.segment_emb(seg_ids)
         # p_enc = self.position_enc(masks)
         p_emb = self.position_emb.weight
-        return self.dropout(t_emb+s_emb+p_emb)
+        return self.layer_norm(self.dropout(t_emb+s_emb+p_emb))
     
     # def _get_position_ids(self,input_size):
     #     # position id list tensor 만듬 
