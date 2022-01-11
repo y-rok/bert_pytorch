@@ -3,7 +3,7 @@
     "layer_num":8,
     "head_num":8,
     "max_seq_len":256,
-    "d_model":256,
+    "d_model":768,
     "d_k":32,
     "d_ff":1024,
     "dropout":0.1,

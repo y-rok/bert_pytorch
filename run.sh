@@ -4,17 +4,19 @@ TOKENIZERS_PARALLELISM=false
 
 # mlm 학습 테스트
 # 128 max seq len으로 학습
-# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_without_ft --ft_ratio 0 --mlm
-# 처음 90% max seq len 64로 이후 128로 학습
-# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_ft --ft_seq_len 64 --mlm
-# 처음 70% max seq len 64로 이후 128로 학습
-# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_ft_7_3 --ft_seq_len 64 --ft_ratio 0.7 --mlm
+# 0 
+# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_without_ft --ft_ratio 0 --mlm --epochs 3000
+# warmup 0.1
+# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_warmup --ft_ratio 0 --mlm --epochs 3000 --warmup_ratio 0.1
 
-# sop 학습 테스트
-# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_sop --sop
+# 처음 90% max seq len 64로 이후 128로 학습
+# 1
+# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_ft --ft_seq_len 64 --mlm --epochs 3000
+# 처음 70% max seq len 64로 이후 128로 학습
+# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_ft_7_3 --ft_seq_len 64 --ft_ratio 0.7 --mlm --epochs 3000
 
 # mlm + sop 학습 테스트 
-# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_sop_ft_7_3 --ft_seq_len 64 --ft_ratio 0.7 --sop --mlm
+# python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/debug_model_mlm_sop_ft_7_3 --ft_seq_len 64 --ft_ratio 0.9 --sop --mlm --epochs 3000
 
 # 디버그 데이터 학습
 # python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/book_corpus_debug.txt --output_dir /root/data/ojt/output/book_bert_64_debug_mlm --ft_ratio 1 --ft_seq_len 64 --mlm  --epochs 3000
@@ -33,7 +35,11 @@ TOKENIZERS_PARALLELISM=false
 
 
 # 10000개 문장으로 학습
-python plm_train.py --config_path /root/data/ojt/config/bert_small.json --train_path /root/data/ojt/datasets/books_corpus_p1_1.txt --output_dir /root/data/ojt/output/bert_small_book_1_mlm --ft_ratio 0 --mlm --epochs 2000 --batch_size 32 --warmup_steps 0
+# python plm_train.py --config_path /root/data/ojt/config/bert_mini.json --train_path /root/data/ojt/datasets/books_corpus_p1_1.txt --output_dir /root/data/ojt/output/bert_mini_book_1_mlm --ft_ratio 0 --mlm --sop --epochs 2000 --batch_size 32 --warmup_ratio 0
+# python plm_train.py --config_path /root/data/ojt/config/bert_mini.json --train_path /root/data/ojt/datasets/books_corpus_p1_1.txt --output_dir /root/data/ojt/output/bert_mini_book_1_mlm_lr --ft_ratio 0 --mlm --sop --epochs 2000 --batch_size 32 --warmup_ratio 0 --lr 5e-05
+python plm_train.py --config_path /root/data/ojt/config/bert_small.json --train_path /root/data/ojt/datasets/books_corpus_p1_1.txt --output_dir /root/data/ojt/output/bert_small_book_1_mlm_sop_lr --ft_ratio 0 --mlm --sop --epochs 20000 --batch_size 32 --warmup_ratio 0 --lr 5e-05
+
+# python plm_train.py --config_path /root/data/ojt/config/bert_small.json --train_path /root/data/ojt/datasets/books_corpus_p1_1.txt --output_dir /root/data/ojt/output/bert_small_book_1_mlm --ft_ratio 0 --mlm --epochs 2000 --batch_size 32 --warmup_steps 0
 
 # export CUDA_VISIBLE_DEVICES=0,1
 # python plm_train.py --config_path /root/data/ojt/config/bert_debug.json --train_path /root/data/ojt/datasets/books_corpus_p1_10.txt --output_dir /root/data/ojt/output/bert_debug_book_10_mlm_ft --ft_seq_len 64 --ft_ratio 0.9 --mlm --epochs 10000 --batch_size 64 

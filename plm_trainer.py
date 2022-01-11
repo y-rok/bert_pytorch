@@ -11,7 +11,7 @@ from model.bert import Bert
 import torch.nn as nn
 from plm_dataset import PLMDataset
 from torch.utils.data import DataLoader
-from torch.optim import Adam
+from torch.optim import Adam, AdamW
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from utils import Metric
@@ -30,6 +30,7 @@ class LMTrainer:
 
         self.model_config=model_config
         self.training_args=training_args
+
         
         self.writer=SummaryWriter(log_dir=self.training_args.output_dir)
         
@@ -115,9 +116,9 @@ class LMTrainer:
 
 
         """ Optimzer, criterion 초기화 """
-        self.optim=Adam(self.bert.parameters(),lr=self.training_args.lr,betas=self.training_args.betas, weight_decay=self.training_args.weight_decay)
+        self.optim=AdamW(self.bert.parameters(),lr=self.training_args.lr,betas=self.training_args.betas, weight_decay=self.training_args.weight_decay)
         # self.optim_schedule = ScheduledOptim(self.optim, model_config["d_model"], n_warmup_steps=self.training_args.warmup_steps)
-        self.scheduler=get_linear_schedule_with_warmup(self.optim,self.training_args.warmup_steps,self.total_steps) # https://huggingface.co/docs/transformers/main_classes/optimizer_schedules
+        self.scheduler=get_linear_schedule_with_warmup(self.optim,self.warmup_steps,self.total_steps) # https://huggingface.co/docs/transformers/main_classes/optimizer_schedules
 
         if training_args.mlm:
             self.mlm_criterion=nn.NLLLoss(ignore_index=0)
@@ -136,7 +137,7 @@ class LMTrainer:
         
     def train(self):
 
-        logger.info("epoch = %d, total step = %d, warm up steps = %d"%(self.training_args.epochs,self.total_steps,self.training_args.warmup_steps))
+        logger.info("epoch = %d, total step = %d, warm up steps = %d"%(self.training_args.epochs,self.total_steps,self.warmup_steps))
         logger.info("Start Training!")
         
         start_time=time.time()
@@ -264,6 +265,7 @@ class LMTrainer:
         for _ in self.post_train_data_loader:
             step_num_in_post_epoch+=1
         self.total_steps += step_num_in_pre_epoch*self.post_epoch
+        self.warmup_steps=self.total_steps*self.training_args.warmup_ratio
 
 
     def _train_tokenizer(self,train_path,output_dir,vocab_size=32000, min_freq=3):
