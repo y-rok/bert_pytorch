@@ -3,7 +3,7 @@
 This is the implementation of pre-training [Bert](https://arxiv.org/abs/1810.04805) with pytorch. 
 (Masked language model, Sentence order prediction)
 
-I have impelemnted model, dataset preprocessing from scratch except for tokenization.
+I have implemented transformer encoder model, dataset preprocessing from scratch except for tokenization.
 I trained a small model with 10,000 sentences of book corpus and saw its loss converges.
 However, due to the lack of GPUs, I have not tried training large model such as BERT-base, BERT-large.
 
