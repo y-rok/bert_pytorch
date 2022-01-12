@@ -94,7 +94,7 @@ class PLMDataset(IterableDataset):
                     input_tokens, mlm_labels, mlm_positions, mlm_masks = self._get_mlm_sequence(input_tokens, seg_a_token_num)
                     
                 # Tensor 생성
-                result=self.tokenizer([input_tokens[:seg_a_token_num]],[input_tokens[seg_a_token_num:]],is_split_into_wrods=True,
+                result=self.tokenizer([input_tokens[:seg_a_token_num]],[input_tokens[seg_a_token_num:]],is_split_into_words=True,
                 max_length=self.model_max_seq_len,padding="max_length",return_token_type_ids=True)
                 
                 # [max_seq_len]

@@ -74,8 +74,9 @@ class Bert(nn.Module):
         x=x.view(batch_size,self.config["max_mask_tokens"],self.config["d_model"]) # [batch_size,max_mask_tokens,d_model]
          
         " batch별로 예측한 position의 token output을 활용하여 Masked Token 예측 / Masking 적용"
-        out = self.fc_mlm(x)
-        out = out*mlm_masks.unsqueeze(2)
+        out = self.fc_mlm(x) 
+        out = out*mlm_masks.unsqueeze(2) #  [batch_size,max_mask_tokens,vocab_num] x [batch_size, max_mask_tokens,1]
+        
         out =F.log_softmax(out,dim=-1)
 
 
@@ -102,31 +103,6 @@ class Bert(nn.Module):
         return result
 
         
-    # def __init__(self,config_path) -> None:
-
-    #     with open(config_path,"r") as cfg_json:
-    #         self.config = json.load(cfg_json)
-        
-    #     self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    #     self.encoder=Encoder(len(self.tokenizer.get_vocab()),self.config["seg_num"],self.config["layer_num"],self.config["head_num"],self.config["max_seq_len"],self.config["d_model"],self.config["d_k"],self.config["d_ff"],self.config["dropout"])
-
-    # def predict_tokens(self):
-
-    # def get_mlm_loss(self,out,labels):
-
-    #     return loss
-    # def pre_train(self,train_path,args):
-        
-    #     optim=Adam(self.encoder.get_parameter(),lr=args.lr,betas=args.betas, weight_decay=args.weight_decay)
-
-    #     plm_dataset=PLMDataset(args.train_path,self.tokenizer,self.config["max_seq_len"])
-    #     train_data_loader = DataLoader(plm_dataset, batch_size=args.batch_size)
-
-    #     loss = nn.NLLLoss()
-
-    #     for input_ids, seg_ids, att_masks, labels, correct_order in train_data_loader:
-    #         out = self.encoder(input_ids, seg_ids, att_masks)
-
 
 
 

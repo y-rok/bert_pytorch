@@ -47,17 +47,19 @@ class MultiHeadAttention(nn.Module):
         """
 
         # 각 Head의 query, key, value matrix 계산  
+        # [batch_size, max_seq_len, d_model] x [d_model , d_k*head_num] -> [batch_size, max_seq_len, head_num * d_k] -> [batch_size, max_seq_len, head_num, d_k] -> ...
         queries = self.query_w(x).view(batch_size,self.max_seq_len,self.head_num,self.d_k).permute(0,2,1,3) # [batch_size, head_num, max_seq_len, d_k]
         keys = self.key_w(x).view(batch_size,self.max_seq_len,self.head_num,self.d_k).permute(0,2,1,3) # [batch_size, head_num, max_seq_len, d_k]
         values = self.value_w(x).view(batch_size,self.max_seq_len,self.head_num,self.d_v).permute(0,2,1,3) # [batch_size, head_num, max_seq_len, d_v]
 
         # 각 Head의 Attention Score 계산
         # i번쨰 token에 대한 j번째 token의 attention score
+        # [max_seq_len, d_q] * [d_k, max_seq_len]
         temp = queries.matmul(keys.transpose(2,3))/(self.d_k**0.5) # [batch_size, head_num, max_seq_len, max_seq_len]
         masks = masks.view(masks.size()[0],1,1,masks.size()[1]) # [batch_size,1,1,max_seq_len]
         # masks = masks.transpose(2,3) 
         temp=temp.masked_fill(masks==0,-1e9)
-        scores=F.softmax(temp,-1)
+        scores=F.softmax(temp,-1) # [batch_size, head_num, max_seq_len, max_seq_len]
         # scores = self.softmax(queries.matmul(keys.transpose(2,3))/self.d_k) # [batch_size, head_num, max_seq_len, max_seq_len]
         out = scores.matmul(values) # [batch_size, head_num, max_seq_len, d_v]
         

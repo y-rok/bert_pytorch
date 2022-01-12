@@ -33,47 +33,43 @@ class InputEmb(nn.Module):
         p_emb = self.position_emb.weight
         return self.layer_norm(self.dropout(t_emb+s_emb+p_emb))
     
-    # def _get_position_ids(self,input_size):
-    #     # position id list tensor 만듬 
-    #     return torch.tensor([i for i in range(input_size)],dtype=int)
-
-class PositionEnc(nn.Module):
+# class PositionEnc(nn.Module):
     
-    def __init__(self, max_seq_len, d_model):
-        super(PositionEnc,self).__init__()
+#     def __init__(self, max_seq_len, d_model):
+#         super(PositionEnc,self).__init__()
         
-        """
-            Postional Embedding
+#         """
+#             Postional Embedding
 
-                PE(pos,2i) = sin(pos/(10000^(2i/emb_dim)))
-                PE(pos,2i+1) = cos(pos/(10000^(2i/emb_dim)))
-        """
-        self.max_seq_len=max_seq_len
-        self.d_model=d_model
-        pos_enc=torch.zeros((max_seq_len,d_model),dtype=torch.float32)
+#                 PE(pos,2i) = sin(pos/(10000^(2i/emb_dim)))
+#                 PE(pos,2i+1) = cos(pos/(10000^(2i/emb_dim)))
+#         """
+#         self.max_seq_len=max_seq_len
+#         self.d_model=d_model
+#         pos_enc=torch.zeros((max_seq_len,d_model),dtype=torch.float32)
 
-        pos_ids=torch.arange(0,max_seq_len,1).unsqueeze(1) # [max_seq_len,1]
-        div_term = torch.pow(10000, torch.arange(0,d_model,2)/d_model) #  [emb_dim/2+1] -> 10000^(2i/emb_dim) 
+#         pos_ids=torch.arange(0,max_seq_len,1).unsqueeze(1) # [max_seq_len,1]
+#         div_term = torch.pow(10000, torch.arange(0,d_model,2)/d_model) #  [emb_dim/2+1] -> 10000^(2i/emb_dim) 
 
-        pos_enc[:,::2]= torch.sin(pos_ids/div_term) # PE(pos,2i) = sin(pos/(10000^(2i/emb_dim)))
-        pos_enc[:,1::2]=torch.cos(pos_ids/div_term) # PE(pos,2i+1) = cos(pos/(10000^(2i/emb_dim)))
+#         pos_enc[:,::2]= torch.sin(pos_ids/div_term) # PE(pos,2i) = sin(pos/(10000^(2i/emb_dim)))
+#         pos_enc[:,1::2]=torch.cos(pos_ids/div_term) # PE(pos,2i+1) = cos(pos/(10000^(2i/emb_dim)))
 
-        self.register_buffer("pos_enc",pos_enc) # [max_seq_len,d_model]
+#         self.register_buffer("pos_enc",pos_enc) # [max_seq_len,d_model]
 
-    def forward(self,masks):
-        """
-        Args:
-            masks (Tensor) : max_seq_len 크기로 구성된 input에서 실제 input이 존재하는 sequence 만큼 1로 그렇지 않은 pad에는 0으로 tagging
-                            [batch_size, max_seq_len]
+#     def forward(self,masks):
+#         """
+#         Args:
+#             masks (Tensor) : max_seq_len 크기로 구성된 input에서 실제 input이 존재하는 sequence 만큼 1로 그렇지 않은 pad에는 0으로 tagging
+#                             [batch_size, max_seq_len]
 
-        Returns:
-            [Tensor]: max_seq_len까지 0으로 padding된 positional encoding
-        """
+#         Returns:
+#             [Tensor]: max_seq_len까지 0으로 padding된 positional encoding
+#         """
         
-        # out = torch.zeros((len(seq_len_list),self.max_seq_len,self.d_model),dtype=torch.float32)
-        # for index, seq_len in enumerate(seq_len_list):
-        #     out[index,:,:seq_len]=self.pos_enc[:,:seq_len]
+#         # out = torch.zeros((len(seq_len_list),self.max_seq_len,self.d_model),dtype=torch.float32)
+#         # for index, seq_len in enumerate(seq_len_list):
+#         #     out[index,:,:seq_len]=self.pos_enc[:,:seq_len]
         
-        # out = torch.mul(masks.unsqueeze(2),self.pos_enc) # [batch_size, max_seq_len, 1] * [max_seq_len, d_model]
-        return self.pos_enc
+#         # out = torch.mul(masks.unsqueeze(2),self.pos_enc) # [batch_size, max_seq_len, 1] * [max_seq_len, d_model]
+#         return self.pos_enc
 

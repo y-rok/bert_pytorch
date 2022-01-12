@@ -213,10 +213,7 @@ class LMTrainer:
         loss.backward()
         self.optim.step()
         self.scheduler.step()
-        # self.optim_schedule.zero_grad()
-        # loss.backward()
-        # self.optim_schedule.step_and_update_lr()
-        
+
         
         # metric 계산
         if self.training_args.mlm:
@@ -226,24 +223,12 @@ class LMTrainer:
             self.mlm_metric.update_acc(mlm_correct_num,mlm_mask_num,self.current_step)
             self.mlm_metric.update_lr(self.scheduler.get_last_lr()[0])
 
-            #debugging code
-            # mlm_labels = data["mlm_labels"].tolist()
-            # mlm_vocabs=[]
-            # for a in mlm_labels:
-            #     for b in a:
-            #         if b!=0:
-            #             mlm_vocabs.append(self.id_to_vocab[b])
-
-            # print(mlm_vocabs)
-            # print(self.bert.convert_mask_pred_to_token(result["mask_pred"],data["mlm_masks"],top_k=1))
         if self.training_args.sop:
             sop_correct_num = result["so_pred"].argmax(dim=-1).eq(data["sop_labels"]).sum().item()
             self.sop_metric.update_loss(sop_loss.item(),self.current_step)
             self.sop_metric.update_acc(sop_correct_num,batch_size,self.current_step)
             self.sop_metric.update_lr(self.optim.param_groups[0]["lr"])
 
-
-        # self.scheduler.step() #learning rate update
 
     
     def _print_metric(self):
